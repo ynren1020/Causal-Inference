@@ -1,5 +1,6 @@
 This is a complete, end-to-end R example using the lalonde dataset from the causaldata package. We'll estimate the causal effect of a job training program (treat) on earnings in 1978 (re78) using both causal forest (from grf R package) 
 and tidymodels for propensity score estimation.
+https://grf-labs.github.io/grf/
 
 # Load packages 
 library(tidymodels)
