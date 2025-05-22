@@ -1,0 +1,74 @@
+This is a complete, end-to-end R example using the lalonde dataset from the causaldata package. We'll estimate the causal effect of a job training program (treat) on earnings in 1978 (re78) using both causal forest (from grf R package) and tidymodels for propensity score estimation.
+
+# Load packages 
+library(tidymodels)
+library(causaldata)
+library(grf)
+library(vip)
+library(dplyr)
+
+# Load & Prepare Data
+data("lalonde")
+glimpse(lalonde)
+
+# Drop variables not needed
+lalonde_clean <- lalonde |>
+select(treat, re78, age, educ, race, married, nodegree, re74, re75)
+
+# Convert categorical 
+lalonde_clean <- lalonde_clean |>
+  mutate(across(c(race, married, nodegree), as.factor))
+
+  # Split Data
+  set.seed(123)
+  data_split <- initial_split(lalonde_clean, prop = 0.8)
+  train <- traning(data_split)
+  test <- testing(data_split)
+
+  # Step 1: Estimate Propensity Scores with tidymodels
+  ps_recipe <- recipe(test ~ ., data = train) |>
+    step_rm(re78) |>
+    step_dummy(all_nominal(), -all_outcomes()) |>
+    step_normalize(all_numeric_predictors())
+
+  ps_model <- logistic_reg() |>
+    set_engine("glm")
+
+  ps_wf <- workflow() |>
+    add_model(ps_model) |>
+    add_recipe(ps_recipe)
+
+  ps_fit <- fit(ps_wf, data = train)
+
+  # Get propensity scores
+  train$pscore <- predict(ps_fit, new_data = train, type = "prob")$.pred_1
+
+  # Step 2: Estimate Causal Effects with Causal Forest (grf)
+  # Remove outcome and treatment from features
+  X <- model.matrix(~ . - treat -re78, data = train)
+  Y <- train$re78
+  W <- train$treat
+
+  cf <- causal_forest(X, Y, W)
+
+  # Estimate average treatment effect (ATE)
+  ate <- average_treatment_effect(cf)
+  print(ate)
+
+  # Predict CATEs (Conditional ATEs)
+  test_X <- model.matrix( ~ . - treat - re78, data = test)
+  cate_preds <- predict(cf, newdata = test_X)$predictions
+
+  # Step 3: Visualize Feature Importance
+  vi <- variable_importance(cf)
+  barplot(vi, names.arg = colnames(X). las = 2, main = "Variable Importance (Causal Forest)")
+
+  # Compare Predicted CATEs with Outcome
+  test <- test |>
+    mutate(cate = cate_preds)
+
+  # Visualize
+  ggplot(test, aes(x = cate)) +
+    geom_histogram(bins = 30, fill = "steelblue") +
+    labs(title = "Predicted CATE Distribution", x = "CATE", y = "Frequency")
+
