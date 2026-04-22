@@ -94,3 +94,11 @@ msm_model <- svyglm(re78 ~ treat, design = svydesign(ids = ~1, data = lalonde, w
 
 beta_msm <- coef(msm_model)["treat"]  # Q5) point estimate  486.9336
 confint(msm_model, "treat", level = 0.95) # treat -1093.765 2067.632
+
+# what is the marginal structural model here?
+# At high level, we are estimating: The marginal (population-average) causal effect of treatment on 1978 earnings (re78)
+# adjusting for baseline confounding via IPTW.
+# Formally, the MSM we fit is: E[Y(t)] = beta0 + beta1*treat, where Y(t) = potential outcome under treatment treat, beta1 = ATE (average treatment effect)
+# No covariates appear in the outcome model because confounding is handled entirely by weighting.
+# These weights create a pseudo-population in which: treatment assignment is independent of measured confounders, exchageability is (approximately) restored.
+# use truncated weights prevent extreme weights, protects against practical positivity violations, and improves finite-sample stability.
