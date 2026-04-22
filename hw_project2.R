@@ -82,3 +82,15 @@ ipw_out <- ipwpoint(exposure = treat, family = "binomial", link = "logit",
 
 # summary of trunc weight 
 summary(ipw_out$weights.trunc)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#1.012   1.052   1.170   1.818   1.623  12.631
+
+# plot of weights 
+ipwplot(weights = ipw_out$weights.trunc, logscale = FALSE, main = "weights", xlim = c(0, 15))
+lalonde$ipw_weight <- ipw_out$weights.trunc
+
+# fit a marginal structural model using the truncated weights
+msm_model <- svyglm(re78 ~ treat, design = svydesign(ids = ~1, data = lalonde, weights = ~ipw_weight))
+
+beta_msm <- coef(msm_model)["treat"]  # Q5) point estimate  486.9336
+confint(msm_model, "treat", level = 0.95) # treat -1093.765 2067.632
